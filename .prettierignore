@@ -1,0 +1,8 @@
+node_modules/
+client/dist/
+.local/
+.venv/
+.git/
+test-results/
+playwright-report/
+package-lock.json

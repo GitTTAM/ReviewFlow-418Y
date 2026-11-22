@@ -1,0 +1,21 @@
+{
+  "verifiedOn": "2026-11-22",
+  "mvp": [
+    { "id": "US-01", "role": "manager", "status": "Complete", "evidence": ["server/test/workflow.test.js", "client/test/workflow.spec.js"] },
+    { "id": "US-02", "role": "manager", "status": "Complete", "evidence": ["server/test/workflow.test.js", "client/test/workflow.spec.js"] },
+    { "id": "US-03", "role": "employee", "status": "Incomplete", "remaining": "Optional signed PDF opening is not implemented." },
+    { "id": "US-04", "role": "manager", "status": "Incomplete", "remaining": "Full dashboard including empty and load-error/retry states." },
+    { "id": "US-05", "role": "hr", "status": "Incomplete", "remaining": "Real form creation UI and atomic persistence." },
+    { "id": "US-06", "role": "hr", "status": "Incomplete", "remaining": "Real HR assignment; seed does not count." },
+    { "id": "US-07", "role": "hr", "status": "Incomplete", "remaining": "Real PDF upload and authorized download." },
+    { "id": "US-08", "role": "all", "status": "Complete", "evidence": ["server/test/workflow.test.js", "client/test/workflow.spec.js"] },
+    { "id": "US-09", "role": "hr", "status": "Incomplete", "remaining": "Form editing and preservation on failed saves." },
+    { "id": "US-10", "role": "hr", "status": "Incomplete", "remaining": "Actual reassignment; draft carryover team decision." }
+  ],
+  "stretch": [
+    { "id": "US-11", "status": "Incomplete" },
+    { "id": "US-12", "status": "Incomplete" },
+    { "id": "US-13", "status": "Incomplete" }
+  ],
+  "effort": { "Joint work": 25, "Matt Lawrence": 15, "Tasfiah Joya": 15, "Ahmet Salik": 15, "Govinda Dhakal": 15, "Lucille Idokogi": 15 }
+}
