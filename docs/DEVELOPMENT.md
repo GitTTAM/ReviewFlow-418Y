@@ -53,7 +53,7 @@ The server and browser sign users out after 15 minutes without a request. Unsave
 
 I added `start_platform.bat` and `clear_platform_ports.bat` so you can run the demo without keeping two terminals open. Their PowerShell helpers live in `devkit/`; `scripts/platform.mjs` manages the hidden app and database processes. Startup logs and process state go in ignored `.local/platform/`.
 
-The Start button checks Node, installs missing packages, builds the client, applies additive migrations, and seeds only an empty database. It reuses an already-running app only when the health check identifies this checkout. The Clear Ports button asks the supervisor to stop gracefully, then checks ownership before stopping any leftover listeners. Unknown processes are left running. It never deletes database files.
+The Start button checks Node, installs missing packages, and builds the client. Local mode applies additive migrations and seeds only an empty database. Shared mode connects to the configured database and checks that I initialized it first; it doesn't migrate or seed during normal startup. It reuses an already-running app only when the health check identifies this checkout. The Clear Ports button asks the supervisor to stop gracefully, then checks ownership before stopping leftover listeners. Unknown processes are left running. It never deletes database files, and shared mode leaves the database online.
 
 You can preview cleanup or check startup prerequisites without launching the browser:
 
@@ -63,13 +63,60 @@ You can preview cleanup or check startup prerequisites without launching the bro
 npm run test:launcher
 ```
 
-The helpers use a process-local execution-policy setting; they don't change your machine's policy. If an older app is already running without the checkout health marker, close its original terminal once before using the new Start button. For a custom MONGO_URI, use the manual commands below; the buttons target the local demo database.
+The helpers use a process-local execution-policy setting; they don't change your machine's policy. If an older app is already running without the checkout health marker, close its original terminal once before using the new Start button. Use Clear Ports before switching database settings in `.env`.
+
+## Shared Atlas database
+
+I keep ReviewFlow separate from my existing `418Y` cluster. Our shared database is named `reviewflow_team`. Each teammate uses their own database login and approved public IP address. Those database credentials are separate from the app's fictional manager/HR/employee accounts.
+
+The private `.env` for a shared connection contains:
+
+```dotenv
+REVIEWFLOW_DATABASE_MODE=shared
+MONGO_URI=mongodb+srv://YOUR_USER:YOUR_PASSWORD@YOUR_CLUSTER/reviewflow_team?retryWrites=true&w=majority&authSource=admin&appName=ReviewFlow-Team02
+PORT=5050
+```
+
+Use the actual values I send privately. These are examples, not working credentials. Never commit the private file or put its password in `.env.example`. I keep the template's defaults local so plain Start still works as a separate demo. For the shared database, replace the settings in `.env` with my private block. Editing the template does not update an existing `.env` or a running app. Use Clear Ports, then Start after changing `.env`.
+
+I use this read-only connection check after packages are installed:
+
+```powershell
+npm run check:shared
+```
+
+It reads the migration marker and account/review counts. It never seeds, migrates, or resets the database, and it keeps connection details out of its output. It checks the database connection; the two-laptop draft test in the README checks that both running apps use the same saved records.
+
+I run the first database setup once, with database-scoped `readWrite` and `dbAdmin` privileges so the migration can create indexes and validators:
+
+```powershell
+npm run setup:shared -- --seed-demo
+```
+
+I already ran this setup for our current database. It only adds demo accounts if the database has no users. Rerunning it preserves saved reviews. Each teammate has only `readWrite` on `reviewflow_team`. I am keeping my existing broader database permissions. I send each person only their own credentials section, and everyone uses the same Start button.
+
+Shared changes affect the whole team, including completing and locking a review. The automated tests use isolated databases. Local reset commands refuse `reviewflow_team`, and the fresh-demo button refuses shared mode. Stopping one person's app leaves the database and other apps running.
+
+All five database logins have been verified from my current network. Each laptop still needs its public IP approved in Atlas. From the laptop being added, I open **Database & Network Access > IP Access List > Add IP Address > Add My Current IP Address**, then save. `ipconfig` shows private network addresses; those are not the public address Atlas needs. Missing public addresses stay pending. I don't add `0.0.0.0/0` as a substitute.
+
+PDF storage is still separate: the `SignedPDF` record doesn't upload the file's bytes to Atlas. Lucille's PDF feature will need shared file storage if downloads must work across laptops.
 
 ## Manual development setup
 
 For normal use, I want you to use `start_platform.bat`. I kept the manual commands here for debugging or working with live frontend updates.
 
-Open PowerShell in the project folder. First-time setup:
+Open PowerShell in the project folder. For our already configured Atlas database, I use one terminal:
+
+```powershell
+npm ci --no-audit --no-fund
+npm run check:shared
+npm run build
+npm run dev
+```
+
+Open http://127.0.0.1:5173 for live frontend updates. Ctrl+C stops the development processes. I don't run local MongoDB or seed the shared database for this.
+
+For a separate **local demo**, set `.env` to the local defaults in `.env.example`. First-time setup:
 
 ```powershell
 npm ci --no-audit --no-fund
@@ -118,9 +165,35 @@ The reset refuses remote databases and requires the explicit flag. Existing PDF 
 
 These folders are ignored by Git. If you back up the database folder, stop MongoDB first.
 
+## When the local database won't start
+
+I added a check for an incomplete WiredTiger database before MongoDB opens it. If collection or metadata files exist but `WiredTiger.wt` is missing or empty, Start reports that clearly and leaves those files alone. This check catches that specific problem; it doesn't prove an existing database is healthy.
+
+For a new laptop, I use a clean source checkout and let Start create a new local database. Don't transfer `.local`, `node_modules`, or `.env` with the source. A folder copied while MongoDB was running, or only partly copied, may not be usable. I can't tell what caused a particular missing file from the startup error alone.
+
+If I only need new fictional demo data, I double-click `start_fresh_demo.bat` and type `FRESH`. The button:
+
+1. Stops this checkout using the same ownership checks as Clear Ports. It refuses to move data if a port belongs to another app or MongoDB still uses the target folder.
+2. Renames `.local/mongo/db` to a unique sibling named `db-backup-...`. It doesn't delete or repair the old database. It refuses paths through junctions or symlinks.
+3. Runs normal Start, which creates the new database and seeds the demo accounts. Existing backups, any `db-recovery` folder, and PDF files stay in place.
+
+The new demo has the original sample reviews, not my previous answers. Normal Start keeps using the new database afterward. If new startup fails too, the backup still stays in place.
+
+For unattended local testing, this is the explicit equivalent of typing `FRESH`:
+
+```powershell
+.\start_fresh_demo.bat -YesUseFreshDemo -NoWait -NoBrowser
+```
+
+I don't use that command when I need the saved reviews. I keep the original and recovery folders and restore an intact backup. Our database is a replica set; MongoDB advises restoring an intact copy instead of repairing a replica-set member when one is available. Repair can discard data, so I don't make repair part of startup. [MongoDB's repair guidance](https://www.mongodb.com/docs/v7.0/reference/program/mongod/#mongodb-binary-bin.mongod).
+
+The launcher tests use their own folders and ports. They cover the missing-file error, refusing an unconfirmed fresh demo, preserving old files and a recovery copy, seeding/sign-in after fresh startup, unrelated listeners, junctions, a database in use on another port, and normal restart persistence. They don't recover a damaged database or inspect another laptop.
+
+## Using an existing MongoDB server
+
 If you already have MongoDB, set `MONGO_URI` in the root `.env` to a dedicated replica-set database and skip `npm run db`. A standalone MongoDB server won't support the transactions this app needs.
 
-`npm run migrate` applies `server/migrations/001-reviewflow.js`. It adds collections, indexes, and validation without clearing work. `npm run seed` adds missing sample records and preserves existing answers, passwords, names, and completion status. The desktop launcher applies migrations and seeds only an empty database; the manual `npm start` command starts the server without either setup step.
+`npm run migrate` applies `server/migrations/001-reviewflow.js`. It adds collections, indexes, and validation without clearing work. `npm run seed` adds missing sample records and preserves existing answers, passwords, names, and completion status. In local mode, the desktop launcher applies migrations and seeds only an empty database. Shared startup checks the existing setup without changing it. The manual `npm start` command starts the server without either setup step.
 
 The separate PA4 project from `418Y V4.zip` was class reference material. ReviewFlow has its own code and database. Keep fictional data in this local class prototype.
 
@@ -174,8 +247,9 @@ This checks report bookkeeping, not whether stories work. Run the app tests befo
 
 ## If something won't start
 
-- **Database connection error:** check that the `npm run db` terminal is still running and your `.env` has the expected `MONGO_URI`.
-- **Migration missing:** run `npm run migrate`, then `npm run seed` for demo records.
+- **Shared database connection error:** run `npm run check:shared`, check `.env`, and make sure this laptop's public IP is approved. Changing `.env.example` does not change the live connection.
+- **Local database connection error:** use Start Platform and check `.local/platform/error.log`. With the optional manual setup, keep the `npm run db` terminal running.
+- **Migration missing:** for our shared database, ask me to check its setup. For a separate local demo, run `npm run migrate`, then `npm run seed`.
 - **Frontend changes aren't showing:** use `npm run dev`, or rebuild with `npm run build` before `npm start`.
 - **Sign-in acts differently between tabs:** use `127.0.0.1` consistently instead of mixing it with `localhost`.
 - **Port already in use:** check which project is using it before stopping anything. ReviewFlow uses 28018 for the database, 5050 for the app, and 5173 for Vite during development.

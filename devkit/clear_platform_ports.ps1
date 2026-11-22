@@ -13,6 +13,7 @@ try {
     $projectRoot = Get-ReviewFlowRoot
     $runtime = Get-ReviewFlowRuntime -Root $projectRoot -Directory $RuntimeDirectory
     $state = Get-PlatformState -Directory $runtime
+    $sharedDatabase = $state -and $state.PSObject.Properties['databaseMode'] -and $state.databaseMode -eq 'shared'
     $workspaceId = Get-ReviewFlowWorkspaceId -Root $projectRoot
     Write-Host 'Stopping ReviewFlow. Saved database files stay in place.' -ForegroundColor Cyan
 
@@ -36,7 +37,8 @@ try {
     # Handle manually started services only when their command line proves ownership.
     # Unknown listeners are reported and left alone, even on our usual port numbers.
     $blocked = @()
-    $ports = @($Port, $DatabasePort)
+    $ports = @($Port)
+    if (-not $sharedDatabase) { $ports += $DatabasePort }
     if ($runtime -eq (Join-Path $projectRoot '.local\platform')) { $ports += 5173 }
     foreach ($listener in (Get-ListeningProcesses -Ports $ports)) {
         $details = Get-ProcessDetails -ProcessId $listener.OwningProcess
@@ -65,6 +67,7 @@ try {
         exit 1
     }
     if ($WhatIfPreference) { Write-Host 'Preview only. No processes were stopped.' }
+    elseif ($sharedDatabase) { Write-Host 'ReviewFlow app stopped. The shared database stays online.' -ForegroundColor Green }
     else { Write-Host 'ReviewFlow ports cleared. Saved reviews were not deleted.' -ForegroundColor Green }
     exit 0
 } catch {

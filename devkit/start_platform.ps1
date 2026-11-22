@@ -85,14 +85,23 @@ try {
                 $health = Get-ReviewFlowHealth -Port $Port
                 if ($health -and $health.workspaceId -eq $workspaceId) {
                     Write-Host "ReviewFlow is ready: http://127.0.0.1:$Port" -ForegroundColor Green
-                    Write-Host 'You can close this window. Use Clear Ports to stop the app and database.'
+                    if ($state.PSObject.Properties['databaseMode'] -and $state.databaseMode -eq 'shared') {
+                        Write-Host 'You can close this window. Clear Ports stops your app; the shared database stays online.'
+                    } else { Write-Host 'You can close this window. Use Clear Ports to stop the app and database.' }
                     if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port" }
                     exit 0
                 }
             }
         }
         $process.Refresh()
-        if ($process.HasExited) { throw "Startup stopped. See $runtime\error.log for details." }
+        if ($process.HasExited) {
+            # A fast failure can finish between our state read and process check.
+            $lastState = Get-PlatformState -Directory $runtime
+            if ($lastState -and $lastState.launcherPid -eq $process.Id -and $lastState.status -eq 'error') {
+                throw "$($lastState.stage) See $runtime\error.log"
+            }
+            throw "Startup stopped. See $runtime\error.log for details."
+        }
         Start-Sleep -Milliseconds 500
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Startup timed out. Check $runtime\output.log and error.log, then use Clear Ports before retrying."

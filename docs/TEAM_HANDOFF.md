@@ -4,6 +4,8 @@ I've put the shared review workflow in place. I can sign in, save a draft, come 
 
 Double-click `start_platform.bat` to get running. All demo passwords are `ReviewFlow!2026`. I gave each feature its own React file, route file, shared helpers, and test file so we can work without constantly editing the same files. Please keep the existing review editor working and check access on the server in every new endpoint.
 
+For our shared database, use the private `.env` block I send you and have your public IP approved first. I put the setup and two-laptop draft check in the [README](../README.md#check-that-both-laptops-share-the-same-reviews). After packages are installed, `npm run check:shared` checks your connection without changing records. Atlas credentials connect the database; the demo accounts above sign into the app.
+
 ## My part: US-08, US-01, US-02 / UI-01, UI-04
 
 I'm handling sign-in, saving drafts, and completing reviews. I also added the basic employee reading page so we can demonstrate the full handoff after completion.

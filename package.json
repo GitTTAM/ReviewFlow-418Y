@@ -10,6 +10,8 @@
     "db": "node scripts/local-mongo.mjs",
     "migrate": "node server/scripts/migrate.js",
     "seed": "node server/scripts/seed-demo.js",
+    "setup:shared": "node server/scripts/setup-shared.js",
+    "check:shared": "node scripts/check-shared.mjs",
     "reset": "node server/scripts/reset-demo.js",
     "start": "node server/src/server.js",
     "dev": "node scripts/dev.mjs",

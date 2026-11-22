@@ -6,6 +6,9 @@ __pycache__/
 *.sqlite3-*
 media/
 .env
+.env.*
+*.env
+ReviewFlow_Atlas_Credentials*
 staticfiles/
 .coverage
 playwright-report/

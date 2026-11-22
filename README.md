@@ -10,17 +10,60 @@ I left each of you a separate starting screen and backend route for your part. [
 
 You'll need **Node.js 22 or newer** installed. After that:
 
+For our team database, follow the shared setup below before your first Start. Without those settings, Start creates a separate local demo.
+
 If an older copy is already running, close that session once before switching to the buttons.
 
 1. Open this project folder and double-click **`start_platform.bat`**.
-2. Let the setup finish. On the first run, it installs packages and downloads MongoDB, which can take a few minutes.
+2. Let setup finish. First run installs packages and, for a local demo, downloads MongoDB.
 3. Your browser opens **http://127.0.0.1:5050** when the app is ready. Sign in with one of the accounts below.
 
-I set the launcher up to build the frontend, check the database setup, and add demo accounts only when the database is empty. Your saved answers stay there between launches. Everything runs in the background. You can close the startup window once the browser opens.
+Start builds the app and connects to the database. Everything runs in the background. You can close the startup window once the browser opens. Saved answers stay between launches.
 
-When you're done, double-click **`clear_platform_ports.bat`**. It stops this project's app and database without deleting saved reviews. It leaves processes it can't identify as ReviewFlow alone and tells you which ports are still busy.
+When you're done, double-click **`clear_platform_ports.bat`**. It stops this project's app without deleting reviews. A local database stops too; a shared database stays online for the team.
 
 If you change React or CSS, use **Clear Ports**, then **Start** to rebuild and see your changes. I put the optional setup for live updates in [DEVELOPMENT.md](docs/DEVELOPMENT.md#manual-development-setup).
+
+## Moving to another laptop
+
+Download and extract the project. Don't copy `.local` or `node_modules` from another computer.
+
+**For our shared Atlas database:**
+
+1. Ask me to approve your **public IP** in Atlas. The `10.x.x.x` or `192.168.x.x` address from `ipconfig` is your private address.
+2. Create `.env` beside `package.json` and paste the private three-line block I send you. Use your own database login.
+3. Double-click **`start_platform.bat`**. If an older copy is running, use **Clear Ports** first.
+
+`.env` holds your working connection and stays out of Git. `.env.example` is just a template; leave real passwords out of it. Use the demo accounts below to sign into the app, not your Atlas database username.
+
+**For a separate local demo:** just double-click **`start_platform.bat`**. It creates its own fictional accounts. These local answers won't appear on other laptops.
+
+If a local database won't start and you only need the fictional demo:
+
+1. Double-click **`start_fresh_demo.bat`**.
+2. Type **`FRESH`** when asked. Your old database goes into a backup folder, and a new demo starts.
+3. Sign in with one of the accounts below. Use normal **Start** next time.
+
+This doesn't recover old answers. If you need them, keep your original database and recovery copy; see [recovery details](docs/DEVELOPMENT.md#when-the-local-database-wont-start). Normal Start keeps saved work.
+
+## Check that both laptops share the same reviews
+
+I added a read-only check you can run in PowerShell after Start has installed the packages:
+
+```powershell
+npm run check:shared
+```
+
+You should see **PASS: connected to shared database reviewflow_team**. If it says local demo, fix `.env`. If it cannot connect, check your private connection details and approved public IP. The check doesn't change any reviews.
+
+For the actual two-laptop test:
+
+1. Start the app on both laptops. On each, sign in as `matt.manager@example.test` and click **Open review**.
+2. On the first laptop, add a short note such as **Two laptop test** and click **Save draft**.
+3. Refresh the review on the second laptop. The same note should appear. Make another small change there, save, then refresh the first laptop.
+4. Use **Clear Ports** on the first laptop. The second laptop should still work. Start the first again and check that the saved note is still there.
+
+I leave the review unfinished for this check so the next person can keep testing. Completing it locks it for everyone. Refresh before saving if someone else has edited the same review.
 
 ## Accounts you can use
 

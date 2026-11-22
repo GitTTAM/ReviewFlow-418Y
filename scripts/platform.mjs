@@ -8,6 +8,7 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { databaseSettings, safeDatabaseError } from "../server/src/databaseSettings.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const args = new Map();
@@ -38,6 +39,7 @@ const state = {
   port,
   databasePort,
   databaseDirectory,
+  databaseMode: null,
   status: "starting",
   stage: "Preparing ReviewFlow...",
 };
@@ -68,7 +70,7 @@ async function finish(error) {
   if (stopping) return;
   stopping = true;
   clearInterval(timer);
-  if (error) console.error(error.stack || error.message);
+  if (error) console.error(safeDatabaseError(error));
   if (app && app.exitCode === null) {
     if (app.connected) app.send({ type: "reviewflow:stop" });
     await Promise.race([once(app, "exit"), new Promise((resolve) => setTimeout(resolve, 8000))]);
@@ -79,7 +81,7 @@ async function finish(error) {
   if (ownsLock) {
     updateState(
       error ? "error" : "stopped",
-      error ? error.message : "ReviewFlow stopped. Saved data kept.",
+      error ? safeDatabaseError(error) : "ReviewFlow stopped. Saved data kept.",
     );
     fs.unlinkSync(lockFile);
   }
@@ -108,21 +110,29 @@ async function run() {
   }
   fs.writeFileSync(lockFile, JSON.stringify({ pid: process.pid }), { flag: "wx" });
   ownsLock = true;
-  updateState("starting", "Starting the local database...");
-  const defaultURI = "mongodb://127.0.0.1:28018/reviewflow?replicaSet=reviewflow";
-  if (process.env.MONGO_URI && process.env.MONGO_URI !== defaultURI) {
-    throw new Error(
-      "The one-click launcher uses the local demo database. Use the README's manual commands for a custom MONGO_URI.",
-    );
+  const settings = databaseSettings(process.env, databasePort);
+  state.databaseMode = settings.mode;
+  if (settings.mode === "shared") {
+    state.databasePort = null;
+    state.databaseDirectory = null;
   }
-  process.env.MONGO_URI = `mongodb://127.0.0.1:${databasePort}/reviewflow?replicaSet=reviewflow`;
+  updateState(
+    "starting",
+    settings.mode === "shared"
+      ? "Connecting to the shared team database..."
+      : "Starting the local database...",
+  );
+  process.env.MONGO_URI = settings.uri;
   process.env.PORT = String(port);
 
   // Imports happen after the local ports are chosen, before config.js reads them.
-  const { startLocalMongo } = await import("./local-mongo.mjs");
-  const alreadyRunning = await portIsOpen(databasePort);
-  if (!alreadyRunning)
-    mongo = await startLocalMongo({ port: databasePort, directory: databaseDirectory });
+  let alreadyRunning = false;
+  if (settings.mode === "local") {
+    const { startLocalMongo } = await import("./local-mongo.mjs");
+    alreadyRunning = await portIsOpen(databasePort);
+    if (!alreadyRunning)
+      mongo = await startLocalMongo({ port: databasePort, directory: databaseDirectory });
+  }
   mongoose = (await import("mongoose")).default;
   const { connectDatabase } = await import("../server/src/db.js");
   await connectDatabase();
@@ -140,13 +150,24 @@ async function run() {
   }
 
   updateState("starting", "Checking the database setup...");
-  const { migrate } = await import("../server/migrations/001-reviewflow.js");
-  await migrate();
-  const { User } = await import("../server/src/models/index.js");
-  if ((await User.countDocuments()) === 0) {
-    updateState("starting", "Adding the first set of fictional demo accounts...");
-    const { seedDemoData } = await import("../server/src/demoData.js");
-    await seedDemoData();
+  if (settings.mode === "shared") {
+    const migration = await mongoose.connection.db
+      .collection("migrations")
+      .findOne({ _id: "001-reviewflow" });
+    if (!migration) {
+      throw new Error(
+        "The shared database needs its first setup. Ask Matt to run npm run setup:shared -- --seed-demo with the database setup account. No local database was started.",
+      );
+    }
+  } else {
+    const { migrate } = await import("../server/migrations/001-reviewflow.js");
+    await migrate();
+    const { User } = await import("../server/src/models/index.js");
+    if ((await User.countDocuments()) === 0) {
+      updateState("starting", "Adding the first set of fictional demo accounts...");
+      const { seedDemoData } = await import("../server/src/demoData.js");
+      await seedDemoData();
+    }
   }
   await mongoose.disconnect();
 

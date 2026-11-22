@@ -1,4 +1,4 @@
-# Shared helpers for the two Windows buttons. Keep process ownership checks here.
+# Shared helpers for the Windows buttons. Keep process ownership checks here.
 Set-StrictMode -Version Latest
 
 function Get-ReviewFlowRoot {
@@ -11,6 +11,37 @@ function Get-ReviewFlowRuntime {
     $resolved = [IO.Path]::GetFullPath($Directory)
     if (-not $resolved.StartsWith($Root + '\', [StringComparison]::OrdinalIgnoreCase)) {
         throw 'The runtime directory must be inside this ReviewFlow folder.'
+    }
+    return $resolved
+}
+
+function Get-ReviewFlowDatabaseDirectory {
+    param([string]$Root, [string]$Runtime)
+    if ($Runtime -eq (Join-Path $Root '.local\platform')) {
+        return Join-Path $Root '.local\mongo\db'
+    }
+    return Join-Path $Runtime 'mongo\db'
+}
+
+function Assert-ReviewFlowDataPath {
+    param([string]$Root, [string]$Directory)
+    $resolved = [IO.Path]::GetFullPath($Directory).TrimEnd('\')
+    if (-not $resolved.StartsWith($Root + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Database and backup folders must stay inside this ReviewFlow folder.'
+    }
+    # Refuse junctions/symlinks in any parent so a rename cannot reach another folder.
+    $current = $resolved
+    while ($current.Length -ge $Root.Length) {
+        $item = $null
+        try { $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop }
+        catch [System.Management.Automation.ItemNotFoundException] { }
+        if ($null -ne $item) {
+            if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                throw "Database path must use ordinary folders, without junctions or symlinks: $current"
+            }
+        }
+        if ($current -eq $Root) { break }
+        $current = Split-Path -Parent $current
     }
     return $resolved
 }

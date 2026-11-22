@@ -1,8 +1,52 @@
 # Verification record — November 22, 2026
 
-I kept ReviewFlow in `418Y Review flow`. The `GitTTAM/ReviewFlow-418Y` remote was empty when I started. I haven't committed, pushed, or deployed anything, and I left the PA4 reference source alone. These checks cover the MERN app.
+I kept ReviewFlow in `418Y Review flow` and left the PA4 reference source alone. These checks cover the MERN app. I keep `matt/reviewflow-work` as my personal branch and update `main` with the verified changes.
 
 For the original foundation check, I reset the demo and verified Jordan's Assigned/version 0 review with four questions and the initial note. The production-server sign-in check returned HTTP 200 and the correct manager/employee. I now provide `start_platform.bat` and `clear_platform_ports.bat` for everyday use. The later launcher checks used separate ports and data folders; I left the existing manually started app on port 5050 and its database alone.
+
+## Shared database launcher
+
+### Latest connection and two-laptop preparation
+
+I added `npm run check:shared`. It passed against live Atlas: the migration is present, with **8 fictional app accounts and 5 reviews**. The command only reads data. Its local-mode, missing-connection, and wrong-database error checks also passed without exposing credentials.
+
+The current API run passed **23/23**, and the browser run passed **3/3**, including failed saves, completion, access rules, and inactivity sign-out. The production build, formatter, launcher preflight, repeated Start, and all six live Atlas smoke checks passed. The live checks left review answers unchanged.
+
+The final full launcher rerun passed **9/9**, about 123 seconds. The first run passed **8/9**: its local fresh-demo startup stopped during database setup without logging a cause. That case passed **1/1** by itself and passed again in the final full rerun, including intact backups and demo sign-in. I haven't established the cause of that initial process exit. The shared two-app test passed in both full runs.
+
+I restored `.env.example` to a safe template with local defaults and commented Atlas placeholders. The working, ignored `.env` still uses Atlas. A scan found none of the five current database passwords in shareable source, the Git index, or the existing Git commit. The private master credential file retains my broader database roles; teammates remain scoped to `readWrite@reviewflow_team`.
+
+I updated README, DEVELOPMENT, and TEAM_HANDOFF with private `.env` setup, the read-only check, and saving a draft across two laptops. MongoDB connection on the second laptop has been reported; the actual app-to-app save/refresh/stop/restart check still needs confirmation. No shared review was completed or reset for these checks.
+
+I also prepared a source-only transfer ZIP in ignored `.local/transfer/ReviewFlow-second-laptop-test.zip` so the second laptop can use the same source without copying local state. It includes the startup buttons, lockfile, safe template, updated docs, and connection check. It excludes `.env`, credentials, local data, dependencies, Git metadata, supplied PDFs, and the private report draft.
+
+I added shared mode to Start Platform, a separate one-time `npm run setup:shared -- --seed-demo` command, and protection against exposing connection passwords in startup errors. Shared startup doesn't launch local MongoDB, seed accounts, or apply migrations. Clear Ports leaves the shared database online. The local fresh-demo button refuses shared mode, and the local reset refuses the dedicated `reviewflow_team` database.
+
+- `npm test`: **23 passed, 0 failed**, including three new configuration/password-redaction checks.
+- `npm run test:launcher`: **9 passed, 0 failed**, about 148 seconds. Two separate app launchers connected to one isolated replica set; a draft saved through one appeared through the other. Stopping one app left the other app, its database, and an unrelated listener online.
+- Shared setup was rerun after a saved draft without changing that draft. Uninitialized shared startup refused to seed automatically. Failed shared connections never fell back to local MongoDB; state and error output omitted the test URI and password.
+- The suite also covered the original local startup, missing-file backup flow, persistence, process ownership, and junction checks. I fixed a timing issue where a fast supervisor exit could hide its database error in the visible launcher.
+- `npm run format:check` and `git diff --check` passed. The tests use separate ports and data folders; they leave shared reviews alone.
+- Those automated shared-database tests use temporary local replica sets. I also completed the live Atlas checks below; teammate credentials and IP approvals remain separate checks.
+- PDF storage remains a separate team task. Sharing MongoDB alone does not share local PDF files.
+
+### Live Atlas setup
+
+I connected to Cluster0 in the separate ReviewFlow project, applied the migration to `reviewflow_team`, and seeded its empty database with **8 fictional app accounts and 5 reviews**. I saved the working connection in ignored `.env`, kept a private backup of the previous settings, and restarted this checkout using Atlas. The old local database stayed on disk. I did not change the existing `418Y` cluster.
+
+Six live smoke checks passed: production login/health, manager sign-in and actual saved questions/answers, matching the served review against Atlas, reopening after sign-out, direct-link draft privacy, and an employee reading a completed result without a PDF. These checks did not change review answers. The private receipt is `.local/atlas/live-app-smoke.json`.
+
+All five database logins now authenticate. Tasfiah, Ahmet, Govinda, and Lucille each have only `readWrite` on `reviewflow_team`. I am keeping my existing `readWriteAnyDatabase`, `dbAdmin@reviewflow_team`, and `readWrite@reviewflow_team` roles. The verified private credentials file is in Downloads and stays out of Git. Each teammate still needs their laptop's public IP approved, and I haven't verified the shared app from a second physical laptop yet.
+
+## Database startup on another laptop
+
+I added a missing/empty `WiredTiger.wt` check and a separate `start_fresh_demo.bat` button. Normal Start never replaces a database automatically. The fresh-demo button requires an explicit choice, keeps the existing folder as a uniquely named backup, and leaves any earlier recovery copy alone. I kept the README to three recovery steps and put technical details in DEVELOPMENT.md.
+
+- Final Windows launcher run: **7 passed, 0 failed**, about 103 seconds. This includes the original saved-draft restart test and new checks for incomplete metadata, explicit confirmation, intact backup contents, untouched recovery copies, fresh demo sign-in, unrelated processes, normal and broken junctions, and a database already used on another port.
+- Production frontend builds ran successfully through the launcher tests. `npm run format:check` passed.
+- The tests used isolated folders and ports. My usual demo stayed on its original running instance; no normal database reset or recovery was attempted.
+- The restricted sandbox blocked esbuild and Windows process inspection, so I ran the final suite with normal Windows access. One intermediate rerun exited without a diagnostic; the final detailed TAP run completed all seven checks.
+- I haven't inspected or repaired the other laptop. These changes provide a safe new demo, not recovery of missing database contents. Browser auto-opening remains a manual check; automated starts use `-NoBrowser`.
 
 ## Readability and desktop launcher update
 
